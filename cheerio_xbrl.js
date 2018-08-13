@@ -31,11 +31,8 @@ client.fetch(url,params,function(err,$,response){
     accum_txt.pop(accum_txt[accum_txt.length]);
 
     data_set = data_set(accum_txt);
-    console.log("date_set:"+data_set);
-
-    for(var key in data_set){
-        console.log(key+":"+data_set[key]);
-    };
+    console.log(accum_txt);
+    console.log(data_set);
 });
 
 
