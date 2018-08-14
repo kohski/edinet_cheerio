@@ -6,7 +6,7 @@ var csv = require("csv");
 const params = {};
 
 
-const root_url = "http://resource.ufocatch.com/atom/edinetx/query/"
+const root_url = "http://resource.ufocatch.com/atom/edinetx/query/";
 var edinet_code = "E00004";
 var url = root_url + edinet_code;
 

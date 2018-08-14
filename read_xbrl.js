@@ -1,93 +1,101 @@
-var http = require("http");
 var client = require("cheerio-httpcli");
-var ParseXbrl = require('parse-xbrl');
-var request = require("request");
-var DOMParser = require('xmldom').DOMParser;
+var csv = require("csv");
+var  fs = require("fs");
 
 var url = "http://resource.ufocatch.com/xbrl/edinet/ED2018080900614/PublicDoc/jpcrp040300-q2r-001_E01086-000_2018-06-30_01_2018-08-09.xbrl";
 var param = {};
+const stringifier = csv.stringify();
+
+var answer = extract_data(url);
+var term = answer.term;
+var closing_date = answer.closing_date;
+var edinet_code = answer.edinet_code;
+var record_list = [];
 
 client.fetch(url,param,function(err,$,res){
-    var result;
+
     //エラーだったらメッセージを出す
     if(err){
         console.log("err:"+err);
         return;
     };
-    // test_value=$("jppfs_cor dc\\:OrdinaryIncome ppfs_cor[contextRef='Prior1YTDDuration']").val();
-    // console.log(test_value);
-    //console.log($);
 
-    // var body = $.xml();
-    // var split_body = body.split("\n");
-    // console.log(split_body);
-    
-    // console.log(body);
-    // console.log(typeof body);
-
-    // body.each(function(){
-    //     console.log($(this).val());
-    // });
-
-    var index = 0;
-    //$('jppfs_cor\\:OrdinaryIncome').each(function(){
     $('*').each(function(){
-        var record_amount = {};
-        var tagname = $(this).prop("tagName");
+        var record  = {};    //最終的なレコード1件分
+        var tagname = $(this).get(0).tagName;   //タグ名。:より右側が勘定科目
         var attr    = $(this).attr("contextRef");
-        var is_cons = "--------";
-        var ins_dur = "--------";
-        var decimal = "--------";
-        var depth   = "--------";
-        var amount  = "--------"; 
+        
 
-        if(tagname.indexOf("JPPFS_COR")===0 && attr.indexOf("Current")!==-1){
-            console.log(tagname+":"+$(this).text());
-            console.log("contextRef:"+attr);
+        if(tagname.indexOf("jppfs_cor")===0 && attr.indexOf("Current")!==-1){
+            var subject = tagname.split(":")[1];
+            var contextRef = $(this).attr("contextRef");    //contextRef取得
+            var contestRedSplit = context_split(contextRef);    //context_split関数で分解
+            var is_cons = contestRedSplit.cons;     //contextRefから連結か否かを読み取り
+            var ins_dur = contestRedSplit.ins_dur;      //残高か期間損益か取得
+            var unitRef = $(this).attr("unitRef");  //金額単位。JPYを想定
+            var decimals = $(this).attr("decimals");    //小数点以下の定義。3桁目or6桁目でまるめている
+            var amount = Number($(this).text());
+    
+            //連想配列に代入
+            record["edinet_code"] = edinet_code;
+            record["term"] = term;
+            record["closing_date"] = closing_date;
+            record["subject"]=subject;
+            record["is_cons"]=is_cons;
+            record["ins_dur"]=ins_dur;
+            record["unitRef"]=unitRef;
+            record["decimal"]=decimals;
+            record["amount_type"]="current";
+            record["amount"]= amount;
 
-            record_amount = "--------";
-            
+            record_list.push(record);
         };
     });
+    console.log(record_list);
+    const writeableStream = fs.createWriteStream("read_result_xbrl.csv",{encoding:"utf-8"});
+    stringifier.pipe(writeableStream);
 
+    for(let i = 0; i<record_list.length;i++){
+        stringifier.write(record_list[i]);
+    };
 });
 
 
 
-// function get_info(){
-//     return new Promise(function(resolve,reject){
-//         let body = {};
-//         http.get(url,(res)=>{
-//             res.setEncoding("utf-8");
-//             res.on("data",(chunk)=>{
-//                 body+=chunk;
-//             });
-//             res.on("end",(res)=>{
-//                 resolve(body);
-//             }).on("error",(res)=>{
-//                 console.log(e.message);
-//             });
-//         });
-//     });
-// };
-// parser.parse(get_info).then(function(parsedDoc){
-//     console.log(parsedDoc);
-// });
 
+function extract_data(url){
+    var answer = {};
 
+    //正規表現 1.q1r~q3r/asrなどを想定
+    var Reterm =  /[aeiq][123sc]r/;
+    //2018-06-30や2019-12-31などを想定
+    var ReClosingDate = /20[0-9][1-9]\-[01][0-9]\-[0123][0-9]/;
+    //E00004-000などを想定
+    var ReEdinetCode = /E\d{5}\-\d{3}/;
 
-// var XML = "";
-// request
-// .get(url).on('response', function(response) {
-//    response.on('data', function(chunk){
-//        XML += chunk;
-//    });
-//    response.on('end',function(){
-//        ParseXbrl.parseStr(XML).then(function(parsedDoc) {
-//        console.log(parsedDoc);
-//        });
-//    });
-// });
+    answer["term"]=url.match(Reterm)[0];
+    answer["closing_date"]=url.match(ReClosingDate)[0];
+    answer["edinet_code"]=url.match(ReEdinetCode)[0].split("-")[0];
 
+    return answer;
+};  
 
+function context_split(contextRef){
+    var answer = {};
 
+    //consolidated or non_consolidated(連結or個別)
+    if(contextRef.match("NonConsolidated")===null){
+        answer["cons"]="Consolidated";
+    }else{
+        answer["cons"]="NonConsolidated";
+    };
+
+    //instant or duration(末日残高or期間損益)
+    if(contextRef.match("Instant")===null){
+        answer["ins_dur"]="Duration";
+    }else{
+        answer["ins_dur"]="Instant";
+    };
+
+    return answer;
+}
