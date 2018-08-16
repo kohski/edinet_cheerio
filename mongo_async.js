@@ -1,3 +1,6 @@
+var mongoose = require("mongoose");
+var Schema = mongoose.Schema;
+
 var test_data=[
     {title:"test1",content:"test1",amount:1000},
     {title:"test2",content:"test2",amount:1000},
@@ -16,9 +19,6 @@ var test_data=[
     {title:"test15",content:"test15",amount:1000}
 ];
 
-var mongoose = require("mongoose");
-var Schema = mongoose.Schema;
-
 var test_case = new Schema({
     title:String,
     content:String,
@@ -30,20 +30,26 @@ mongoose.connect('mongodb://localhost:27017/test_case');
 
 var test_case = mongoose.model("test_case");
 
+for(var i = 0;i < test_data.length;i++){
+    var record = {};
+    record.title   = test_data[i].title;
+    record.content = test_data[i].content;
+    record.amount  = test_data[i].amount;
 
-for(var i = 0;test_data.length;i++){
-    var record = {
-        title:test_data[i].title,
-        content:test_data[i].content,
-        amount:test_data[i].amount
-    };
+    register();
+};
 
-    new test_case(record).save(function (err, test_data){
-        if(err) {
-        console.log(err);
-        } else {
-        console.log('done');
-        console.log(test_data);
-        }
+
+function register(){
+    return new Promise(()=>{
+        new test_case(record).save(function (err, test_data){
+            if(err) {
+            console.log(err);
+            } else {
+            console.log('done');
+            console.log(test_data);
+            }
+        });
+        resolve();
     });
 };

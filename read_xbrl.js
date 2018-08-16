@@ -116,6 +116,58 @@ function context_split(contextRef){
                 データベースへの連結
 ------------------------------------------------------------
 */
+var mongoose = require("mongoose");
+var Schema = mongoose.Schema;
 
+var edinet_test = new Schema({
+    edinet_code:String,
+    term:String,
+    closing_date:Date,
+    subject:String,
+    is_cons:String,
+    ins_dur:String,
+    unitRef:String,
+    decimal:Number,
+    amount_type:String,
+    amount:Number
+});
+
+mongoose.model('edinet_test',edinet_test);
+mongoose.connect('mongodb://localhost:27017/edinet_test');
+
+var edinet_test = mongoose.model("edinet_test");
+
+for(var i = 0;i < record_list.length;i++){
+    var record = {};
+    record.edinet_code = record_list[i].edinet_code;
+    record.term = record_list[i].term;
+    record.closing_date = edinerecord_listt_test[i].closing_date;
+    record.subject = record_list[i].subject;
+    record.is_cons = record_list[i].is_cons;
+    record.ins_dur = record_list[i].ins_dur;
+    record.unitRef = record_list[i].unitRef;
+    record.decimal = record_list[i].decimal;
+    record.amount_type = record_list[i].amount_type;
+    record.amount = record_list[i].amount_type;
+
+    register();
+};
+
+console.log("All Done");
+
+
+function register(){
+    return new Promise(()=>{
+        new test_case(record).insert(function (err, record_list){
+            if(err) {
+            console.log(err);
+            } else {
+            console.log('done');
+            console.log(record_list);
+            }
+        });
+        resolve();
+    });
+};
 
 
