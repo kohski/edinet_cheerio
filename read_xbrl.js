@@ -17,14 +17,14 @@ var record_list = [];
                 データのスクレイピング部分
 -----------------------------------------------------------
 */
-
-client.fetch(url,param,function(err,$,res){
+(async ()=>{
+    const {$} = await client.fetch(url,param);
 
     //エラーだったらメッセージを出す
-    if(err){
-        console.log("err:"+err);
-        return;
-    };
+    // if(err){
+    //     console.log("err:"+err);
+    //     return;
+    // };
 
     $('*').each(function(){
         var record  = {};    //最終的なレコード1件分
@@ -57,117 +57,126 @@ client.fetch(url,param,function(err,$,res){
             record_list.push(record);
         };
     });
-    console.log(record_list);
-    const writeableStream = fs.createWriteStream("read_result_xbrl.csv",{encoding:"utf-8"});
-    stringifier.pipe(writeableStream);
+    //console.log(record_list);
+    // const writeableStream = fs.createWriteStream("read_result_xbrl.csv",{encoding:"utf-8"});
+    // stringifier.pipe(writeableStream);
 
-    for(let i = 0; i<record_list.length;i++){
-        stringifier.write(record_list[i]);
+    // for(let i = 0; i<record_list.length;i++){
+    //     stringifier.write(record_list[i]);
+    // };
+
+
+
+    /*
+    ------------------------------------------------------------
+                    データベースへの連結
+    ------------------------------------------------------------
+    */
+    var mongoose = require("mongoose");
+    var Schema = mongoose.Schema;
+
+    var edinet_test = new Schema({
+        edinet_code:String,
+        term:String,
+        closing_date:Date,
+        subject:String,
+        is_cons:String,
+        ins_dur:String,
+        unitRef:String,
+    //    decimal:Number,
+        amount_type:String,
+        amount:Number
+    });
+
+    //mongoose.model('edinet_test',edinet_test);
+    mongoose.connect('mongodb://localhost:27017/edinet_test');
+
+    var edinet_test = mongoose.model("edinet_test",edinet_test);
+
+
+    console.log("record_listのlength:"+record_list.length);
+    for(var i = 0;i < record_list.length;i++){
+        var record = {};
+        record.edinet_code = record_list[i].edinet_code;
+        record.term = record_list[i].term;
+        record.closing_date = record_list[i].closing_date;
+        record.subject = record_list[i].subject;
+        record.is_cons = record_list[i].is_cons;
+        record.ins_dur = record_list[i].ins_dur;
+        record.unitRef = record_list[i].unitRef;
+    //    record.decimal = parseInt(record_list[i].decimal);
+        record.amount_type = record_list[i].amount_type;
+        record.amount = record_list[i].amount;
+
+        // await new Promise((resolve)=>{
+        //         console.log("promise");
+        //         new edinet_test(record).save(function (err, record_list){
+        //             console.log("ifの直前");            
+        //             if(err) {
+        //             console.log(err);
+        //             } else {
+        //             console.log('done');
+        //             console.log(record_list);
+        //             resolve();
+        //             }
+        //         });
+        // });
+
+        await new edinet_test(record).save();
+
+        console.log("registered!!");
     };
-});
+    console.log("All Done");
+    mongoose.disconnect();
+})();
 
+
+
+
+
+// function register(){
+ 
+// };
 /*
 -------------------------------------------------------------
-                        共通関数
+共通関数
 -------------------------------------------------------------
 */
 
 function extract_data(url){
-    var answer = {};
+var answer = {};
 
-    //正規表現 1.q1r~q3r/asrなどを想定
-    var Reterm =  /[aeiq][123sc]r/;
-    //2018-06-30や2019-12-31などを想定
-    var ReClosingDate = /20[0-9][1-9]\-[01][0-9]\-[0123][0-9]/;
-    //E00004-000などを想定
-    var ReEdinetCode = /E\d{5}\-\d{3}/;
+//正規表現 1.q1r~q3r/asrなどを想定
+var Reterm =  /[aeiq][123sc]r/;
+//2018-06-30や2019-12-31などを想定
+var ReClosingDate = /20[0-9][1-9]\-[01][0-9]\-[0123][0-9]/;
+//E00004-000などを想定
+var ReEdinetCode = /E\d{5}\-\d{3}/;
 
-    answer["term"]=url.match(Reterm)[0];
-    answer["closing_date"]=url.match(ReClosingDate)[0];
-    answer["edinet_code"]=url.match(ReEdinetCode)[0].split("-")[0];
+answer["term"]=url.match(Reterm)[0];
+answer["closing_date"]=url.match(ReClosingDate)[0];
+answer["edinet_code"]=url.match(ReEdinetCode)[0].split("-")[0];
 
-    return answer;
+return answer;
 };  
 
 function context_split(contextRef){
-    var answer = {};
+var answer = {};
 
-    //consolidated or non_consolidated(連結or個別)
-    if(contextRef.match("NonConsolidated")===null){
-        answer["cons"]="Consolidated";
-    }else{
-        answer["cons"]="NonConsolidated";
-    };
-
-    //instant or duration(末日残高or期間損益)
-    if(contextRef.match("Instant")===null){
-        answer["ins_dur"]="Duration";
-    }else{
-        answer["ins_dur"]="Instant";
-    };
-
-    return answer;
+//consolidated or non_consolidated(連結or個別)
+if(contextRef.match("NonConsolidated")===null){
+answer["cons"]="Consolidated";
+}else{
+answer["cons"]="NonConsolidated";
 };
 
-
-
-/*
-------------------------------------------------------------
-                データベースへの連結
-------------------------------------------------------------
-*/
-var mongoose = require("mongoose");
-var Schema = mongoose.Schema;
-
-var edinet_test = new Schema({
-    edinet_code:String,
-    term:String,
-    closing_date:Date,
-    subject:String,
-    is_cons:String,
-    ins_dur:String,
-    unitRef:String,
-    decimal:Number,
-    amount_type:String,
-    amount:Number
-});
-
-mongoose.model('edinet_test',edinet_test);
-mongoose.connect('mongodb://localhost:27017/edinet_test');
-
-var edinet_test = mongoose.model("edinet_test");
-
-for(var i = 0;i < record_list.length;i++){
-    var record = {};
-    record.edinet_code = record_list[i].edinet_code;
-    record.term = record_list[i].term;
-    record.closing_date = edinerecord_listt_test[i].closing_date;
-    record.subject = record_list[i].subject;
-    record.is_cons = record_list[i].is_cons;
-    record.ins_dur = record_list[i].ins_dur;
-    record.unitRef = record_list[i].unitRef;
-    record.decimal = record_list[i].decimal;
-    record.amount_type = record_list[i].amount_type;
-    record.amount = record_list[i].amount_type;
-
-    register();
+//instant or duration(末日残高or期間損益)
+if(contextRef.match("Instant")===null){
+answer["ins_dur"]="Duration";
+}else{
+answer["ins_dur"]="Instant";
 };
 
-console.log("All Done");
-
-
-function register(){
-    return new Promise(()=>{
-        new test_case(record).insert(function (err, record_list){
-            if(err) {
-            console.log(err);
-            } else {
-            console.log('done');
-            console.log(record_list);
-            }
-        });
-        resolve();
-    });
+return answer;
 };
-
 
